@@ -404,9 +404,9 @@ TYPE LAGRANGIAN_PARTICLE_TYPE
    REAL(EB) :: PWT=1._EB           !< Weight factor of particle; i.e. the number of real particles it represents
    REAL(EB) :: RE=0._EB            !< Reynolds number based on particle diameter
    REAL(EB) :: MASS=0._EB          !< Particle mass (kg)
-   REAL(EB) :: T_INSERT=0._EB      !< Time when particle was inserted (s)
    REAL(EB) :: MASS_PREVIOUS=0._EB !< Particle mass from previous time step (kg)
    REAL(EB) :: MASS_FLUX=0._EB     !< Mass flux from particle surface (kg/m2/s)
+   REAL(EB) :: T_INSERT=0._EB      !< Time when particle was inserted (s)
    REAL(EB) :: DX=1.               !< Length factor used in POROUS_DRAG calculation (m)
    REAL(EB) :: DY=1.               !< Length factor used in POROUS_DRAG calculation (m)
    REAL(EB) :: DZ=1.               !< Length factor used in POROUS_DRAG calculation (m)
