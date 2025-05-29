@@ -1,4 +1,4 @@
-!> \brief Collection of routines to compute boundary conditions
+!> \brief Collection of routines to compute boundary conditions 
 
 MODULE WALL_ROUTINES
 
@@ -238,6 +238,11 @@ IF (SOLID_PARTICLES) THEN
       LP => LAGRANGIAN_PARTICLE(IP)
       LPC => LAGRANGIAN_PARTICLE_CLASS(LP%CLASS_INDEX)
       IF (.NOT.LPC%SOLID_PARTICLE .AND. .NOT.LPC%MASSLESS_TARGET) CYCLE PARTICLE_LOOP
+      
+      ! Store mass from previous time step before any calculations that might change it
+      IF (CORRECTOR) LP%MASS_PREVIOUS = LP%MASS
+      
+      
       SF => SURFACE(LPC%SURF_INDEX)
       BC => BOUNDARY_COORD(LP%BC_INDEX)
       B1 => BOUNDARY_PROP1(LP%B1_INDEX)
@@ -253,7 +258,16 @@ IF (SOLID_PARTICLES) THEN
 
       IF (LPC%SOLID_PARTICLE) THEN
          CALL CALCULATE_ZZ_F(T,DT,PARTICLE_INDEX=IP)
-         IF (CORRECTOR) CALL DEPOSIT_PARTICLE_MASS(LP,LPC)  ! Add the particle off-gas to the gas phase mesh
+         IF (CORRECTOR) THEN
+            CALL DEPOSIT_PARTICLE_MASS(LP,LPC)  ! Add the particle off-gas to the gas phase mesh
+            
+            ! Calculate mass flux: (mass_previous - mass_current) / surface_area / time_step
+            IF (B1%AREA > TWO_EPSILON_EB .AND. DT > TWO_EPSILON_EB) THEN
+               LP%MASS_FLUX = (LP%MASS_PREVIOUS - LP%MASS) / B1%AREA / DT
+            ELSE
+               LP%MASS_FLUX = 0._EB
+            ENDIF
+         ENDIF
       ENDIF
 
    ENDDO PARTICLE_LOOP
