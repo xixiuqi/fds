@@ -1,0 +1,22 @@
+# ========== base  ==========
+FROM fds_env AS base
+
+COPY ./hypre /hypre
+COPY ./sundials /sundials
+COPY ./fds /fds
+WORKDIR /fds/Build/ompi_gnu_linux_db
+RUN sed -i 's/-m64//g' ../makefile
+
+# ========== deps ==========
+FROM base AS deps
+ENV CLEAN_HYPRE=false
+ENV CLEAN_SUNDIALS=false
+RUN chmod +x make_fds.sh && ./make_fds.sh \
+    && rm -rf /fds/Build/ompi_gnu_linux/*.o /fds/Build/ompi_gnu_linux/*.mod
+
+# ========== final builder ==========
+FROM base AS fds_builder
+COPY ./fds/Source /fds/Source
+ENV CLEAN_HYPRE=false
+ENV CLEAN_SUNDIALS=false
+RUN chmod +x make_fds.sh && ./make_fds.sh
