@@ -126,6 +126,14 @@ echo ----------------------------------------------------------
 echo ----------------------------------------------------------
 echo.
 
+
+set HYPRE_ENABLE_CUDA=OFF
+if "%BUILD_WITH_GPU%" == "ON" (
+  if "%GPU_ARCH%" == "cuda" (
+    set HYPRE_ENABLE_CUDA=ON
+  )
+)
+
 set BUILDDIR=%LIB_REPO%\build
 cd %BUILDDIR%
 cmake ..\src  ^
@@ -136,7 +144,8 @@ cmake ..\src  ^
 -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded" ^
 -DCMAKE_MAKE_PROGRAM="%CMAKE_MAKE_PROGRAM%" ^
 -DHYPRE_FMANGLE=4 ^
--DCMAKE_INSTALL_LIBDIR="lib"
+-DCMAKE_INSTALL_LIBDIR="lib" ^
+-DHYPRE_ENABLE_CUDA="%HYPRE_ENABLE_CUDA%"
 
 
 echo.
