@@ -4652,6 +4652,15 @@ PARTICLE_LOOP: DO IP=1,NLP
          CYCLE WEED_LOOP
       ENDIF
 
+      ! Remove solid particles that are too small than the desired mass fraction
+
+      IF (LPC%SOLID_PARTICLE) THEN
+         IF (LP%MASS < LPC%INITIAL_MASS * LPC%KILL_MASS_FRACTION) THEN
+            CALL ADD_TO_PARTICLE_SEND_BUFFER
+            CYCLE WEED_LOOP
+         ENDIF
+      ENDIF
+
       ! Remove particles that have left the active mesh
 
       IF (BC%X>XS .AND. BC%X<XF .AND. &
