@@ -33,7 +33,9 @@ REAL(EB), INTENT(IN) :: T,DT
 INTEGER, INTENT(IN) :: NM
 LOGICAL :: CALL_HT_1D
 REAL(EB) :: DT_BC,SLIP_COEF
-INTEGER :: IW,IP,ICF,ITW
+INTEGER :: IW,IP,ICF,ITW,I,J,K  ! Added I,J,K declarations here
+REAL(EB) :: U_LP,V_LP,W_LP,U_MAG_LP
+REAL(EB) :: V_OPPOSED,DX_LP,DY_LP,DZ_LP,CELL_DISTANCE
 TYPE(WALL_TYPE), POINTER :: WC
 TYPE(THIN_WALL_TYPE), POINTER :: TW
 TYPE(SURFACE_TYPE), POINTER :: SF
@@ -247,6 +249,11 @@ IF (SOLID_PARTICLES) THEN
       BC => BOUNDARY_COORD(LP%BC_INDEX)
       B1 => BOUNDARY_PROP1(LP%B1_INDEX)
 
+      ! Get local mesh size at particle location
+      DX_LP = DX(MAX(1, MIN(BC%II, SIZE(DX))))
+      DY_LP = DY(MAX(1, MIN(BC%JJ, SIZE(DY))))
+      DZ_LP = DZ(MAX(1, MIN(BC%KK, SIZE(DZ))))
+
       CALL NEAR_SURFACE_GAS_VARIABLES(T,SF,BC,B1,LP=LP,PARTICLE_INDEX=IP)
 
       IF (.NOT.SF%THERMAL_BC_INDEX==THERMALLY_THICK) THEN
@@ -270,6 +277,50 @@ IF (SOLID_PARTICLES) THEN
          ENDIF
       ENDIF
 
+      ! Get valid array bounds to avoid out-of-bounds access
+      I = MAX(1, BC%II-1)
+      J = MAX(1, BC%JJ-1) 
+      K = MAX(1, BC%KK-1)
+
+      ! Calculate local velocity components by averaging adjacent cell values
+      U_LP = 0.5_EB*(UU(I,BC%JJ,BC%KK) + UU(I+1,BC%JJ,BC%KK))
+      V_LP = 0.5_EB*(VV(BC%II,J,BC%JJ) + VV(BC%II,BC%JJ+1,BC%KK))  
+      W_LP = 0.5_EB*(WW(BC%II,BC%JJ,K) + WW(BC%II,BC%JJ,BC%KK+1))
+
+      LP%LOCAL_U = SQRT(U_LP**2 + V_LP**2 + W_LP**2)
+
+      ! Check surrounding cells temperature and set particle temperature if needed
+      IF (.NOT. B1%HIGH_TEMP_TRIGGERED) THEN
+         ! Use ANY with array section
+         IF (ANY(TMP(I:MIN(IBAR,BC%II+1), &
+               J:MIN(JBAR,BC%JJ+1), &
+               K:MIN(KBAR,BC%KK+1)) > 648.75_EB)) THEN
+            ! Check if velocity components are in opposite quadrant of any high temperature cell
+            B1%HIGH_TEMP_TRIGGERED = .TRUE.
+         ENDIF
+      ENDIF
+
+      ! Set temperature if triggered and within time window
+      IF (B1%HIGH_TEMP_TRIGGERED) THEN
+
+         U_MAG_LP = SQRT(U_LP**2 + V_LP**2 + W_LP**2)
+
+         CALL CUBE_DISTANCE(DX_LP, DY_LP, DZ_LP, U_LP, V_LP, W_LP, CELL_DISTANCE)
+
+         ! Calculate V_OPPOSED based on U_MAG_LP
+         IF (U_MAG_LP <= 1.04_EB) THEN
+            V_OPPOSED = 0.00174_EB
+         ELSE  ! Da is small
+            V_OPPOSED = 0.0_EB
+         ENDIF
+
+         LP%DELTA_OPPOSED = V_OPPOSED * DT + LP%DELTA_OPPOSED
+         IF (LP%DELTA_OPPOSED > CELL_DISTANCE) THEN
+            B1%Q_RAD_IN = B1%Q_RAD_IN + 18200._EB
+         ENDIF
+
+      ENDIF
+
    ENDDO PARTICLE_LOOP
    !$OMP END DO
 
@@ -280,6 +331,49 @@ ENDIF
 T_USED(6)=T_USED(6)+CURRENT_TIME()-TNOW
 END SUBROUTINE WALL_BC
 
+!> \brief Calculate minimum distance from origin to cube edge along a direction vector
+!>
+!> \param A Half-length of cube in x direction (m)
+!> \param B Half-length of cube in y direction (m)
+!> \param C Half-length of cube in z direction (m)
+!> \param U X component of direction vector (m/s)
+!> \param V Y component of direction vector (m/s)
+!> \param W Z component of direction vector (m/s)
+!> \param DIST Output minimum distance to cube edge (m)
+
+SUBROUTINE CUBE_DISTANCE(A,B,C,U,V,W,DIST)
+
+USE PRECISION_PARAMETERS
+IMPLICIT NONE
+
+REAL(EB), INTENT(IN) :: A,B,C     ! Cube dimensions (half-lengths)
+REAL(EB), INTENT(IN) :: U,V,W     ! Direction vector components
+REAL(EB), INTENT(OUT) :: DIST     ! Minimum distance to cube edge
+REAL(EB) :: TX,TY,TZ              ! Intersection distances in each direction
+REAL(EB) :: MAG                     ! Magnitude of the direction vector
+REAL(EB) :: UN, VN, WN              ! Normalized direction vector components
+
+! Check if direction vector is effectively zero
+IF (ABS(U)<TWO_EPSILON_EB .AND. ABS(V)<TWO_EPSILON_EB .AND. ABS(W)<TWO_EPSILON_EB) THEN
+   DIST = MAX(A,B,C)
+   RETURN
+ENDIF
+
+! Normalize the direction vector
+MAG = SQRT(U**2 + V**2 + W**2)
+UN = U / MAG
+VN = V / MAG
+WN = W / MAG
+
+! Calculate intersection distances
+TX = ABS(A / UN)
+TY = ABS(B / VN)
+TZ = ABS(C / WN)
+
+! Find minimum positive distance
+DIST = MIN(TX,TY,TZ)
+
+END SUBROUTINE CUBE_DISTANCE
 
 SUBROUTINE ASSIGN_GHOST_VALUE(WALL_INDEX,BC,B1)
 
