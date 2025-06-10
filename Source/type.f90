@@ -333,6 +333,7 @@ TYPE BOUNDARY_PROP1_TYPE
 
    LOGICAL :: BURNAWAY=.FALSE.       !< Indicater if cell can burn away when fuel is exhausted
    LOGICAL :: LAYER_REMOVED=.FALSE.  !< Indicator that at least one layer has been removed during the time step
+   LOGICAL :: HIGH_TEMP_TRIGGERED=.FALSE. !< Indicator that high temperature has been triggered
 
 END TYPE BOUNDARY_PROP1_TYPE
 
@@ -419,6 +420,8 @@ TYPE LAGRANGIAN_PARTICLE_TYPE
    REAL(EB) :: ACCEL_Y=0._EB       !< Acceleration in y direction (m/s2)
    REAL(EB) :: ACCEL_Z=0._EB       !< Acceleration in z direction (m/s2)
    REAL(EB) :: RVC=-1._EB           !< Reciprocal of cell volume containing particle (1/m3)
+   REAL(EB) :: DELTA_OPPOSED=0._EB  !< Opposed flame spread distance (m)
+   REAL(EB) :: LOCAL_U=0._EB        !< Local velocity mag
 
 END TYPE LAGRANGIAN_PARTICLE_TYPE
 
